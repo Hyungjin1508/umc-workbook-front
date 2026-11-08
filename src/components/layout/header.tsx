@@ -19,7 +19,7 @@ export function Header() {
           </Link>
           {/* 3. 기존 href="#search" -> to="/search" 로 변경 */}
           <Link to="/search" activeProps={{ className: "active", "aria-current": "page" }}>검색</Link>
-          <a href="#my-page">내 정보</a>
+          <Link to="/my-page" activeProps={{ className: "active", "aria-current": "page" }}>내 정보</Link>
         </nav>
       </div>
 
@@ -29,9 +29,9 @@ export function Header() {
         <Link to="/search" className="flex h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-[8px] border border-[#e3e6eb] bg-white p-0 [&_img]:h-[24px] [&_img]:w-[24px] [&_img]:opacity-[0.62]" aria-label="영화 검색">
           <img src="/icons/movie-icons/search.svg" alt="" />
         </Link>
-        <button className="flex h-[42px] w-[71px] cursor-pointer items-center justify-center rounded-[8px] border border-white bg-[#2563eb] text-[14px] font-extrabold leading-[17px] text-white" type="button">
+        <Link to="/login" className="flex h-[42px] w-[71px] cursor-pointer items-center justify-center rounded-[8px] border border-white bg-[#2563eb] text-[14px] font-extrabold leading-[17px] text-white">
           로그인
-        </button>
+        </Link>
       </div>
     </header>
   );
