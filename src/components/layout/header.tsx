@@ -1,6 +1,20 @@
 ﻿import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { getMe } from "@/api/members/me";
+import { useAuthStore } from "@/stores/auth-store";
+
 
 export function Header() {
+
+const accessToken = useAuthStore((state) => state.accessToken);
+const meQuery = useQuery({
+  queryKey: ["members", "me"],
+  queryFn: getMe,
+  enabled: Boolean(accessToken),
+  staleTime: 5 * 60 * 1000,
+  retry: false,
+});
+
   return (
     <header className="flex h-[91px] w-full items-center justify-between bg-white px-[80px] py-[24px]">
       <div className="flex items-center gap-[42px]">
@@ -29,9 +43,17 @@ export function Header() {
         <Link to="/search" className="flex h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-[8px] border border-[#e3e6eb] bg-white p-0 [&_img]:h-[24px] [&_img]:w-[24px] [&_img]:opacity-[0.62]" aria-label="영화 검색">
           <img src="/icons/movie-icons/search.svg" alt="" />
         </Link>
-        <Link to="/login" className="flex h-[42px] w-[71px] cursor-pointer items-center justify-center rounded-[8px] border border-white bg-[#2563eb] text-[14px] font-extrabold leading-[17px] text-white">
-          로그인
-        </Link>
+        {!accessToken ? (
+          <Link to="/login" className="flex h-[42px] w-[71px] cursor-pointer items-center justify-center rounded-[8px] border border-white bg-[#2563eb] text-[14px] font-extrabold leading-[17px] text-white">
+            로그인
+          </Link>
+        ) : meQuery.isLoading ? (
+          <span className="h-[42px] w-[96px] animate-pulse rounded-[8px] bg-gray-200" role="status" aria-label="내 정보를 불러오는 중이에요." />
+        ) : (
+          <Link to="/my-page" className="flex h-[42px] w-[96px] cursor-pointer items-center justify-center rounded-[8px] border border-white bg-[#2563eb] text-[14px] font-extrabold leading-[17px] text-white">
+            마이페이지
+          </Link>
+        )}
       </div>
     </header>
   );

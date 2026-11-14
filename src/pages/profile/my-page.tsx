@@ -1,16 +1,29 @@
 import { Link } from "@tanstack/react-router";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { getMovieDetail } from "@/api/movies/get-movie-detail";
 import { ProfileAvatar } from "@/components/profile/profile-avatar";
 import MovieCard from "@/components/movies/movie-card";
 import { TmdbAttribution } from "@/components/layout/tmdb-attribution";
-import { useBookmarkStore } from "@/stores/bookmark-store";
+import { useFavoritesQuery } from "@/hooks/use-favorites-query";
+import { useMemberId } from "@/hooks/use-member-id";
 import { useProfileStore } from "@/stores/profile-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { getMe } from "@/api/members/me";
 
 export function MyPage() {
   const profile = useProfileStore((state) => state.profile);
-  const bookmarkIds = useBookmarkStore((state) => state.bookmarkedMovieIds);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const meQuery = useQuery({
+    queryKey: ["members", "me"],
+    queryFn: getMe,
+    enabled: Boolean(accessToken),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  const memberId = useMemberId();
+  const favoritesQuery = useFavoritesQuery(memberId);
+  const bookmarkIds = favoritesQuery.data?.map((favorite) => favorite.movieId) ?? [];
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(bookmarkIds.length / 10));
   const currentPage = Math.min(page, totalPages);
@@ -32,17 +45,31 @@ export function MyPage() {
         </div>
         <section aria-labelledby="profile-info-heading" className="border-y border-[#e3e6eb] py-[14px]">
           <h2 id="profile-info-heading" className="mb-[16px] text-[16px] font-bold">기본 정보</h2>
+          {!accessToken ? (
+            <p className="text-[14px] text-[#606774]">로그인 후 내 정보를 확인할 수 있어요. <Link to="/login" className="font-bold text-[#2563eb]">로그인</Link></p>
+          ) : meQuery.isLoading ? (
+            <p className="text-[14px] text-[#606774]" role="status">내 정보를 불러오는 중이에요.</p>
+          ) : meQuery.isError ? (
+            <p className="text-[14px] text-red-600" role="alert">내 정보를 불러오지 못했어요.</p>
+          ) : meQuery.data ? (
           <div className="flex items-center gap-[28px]">
             <ProfileAvatar image={profile.profileImage} />
             <dl className="grid flex-1 grid-cols-[minmax(240px,0.4fr)_1fr] gap-[24px]">
-              <div><dt className="mb-[5px] text-[11px] text-[#969da8]">닉네임</dt><dd className="text-[14px] font-bold">{profile.nickname}</dd></div>
-              <div><dt className="mb-[5px] text-[11px] text-[#969da8]">이메일</dt><dd className="text-[14px] font-bold">{profile.email}</dd></div>
+              <div><dt className="mb-[5px] text-[11px] text-[#969da8]">닉네임</dt><dd className="text-[14px] font-bold">{meQuery.data.nickname}</dd></div>
+              <div><dt className="mb-[5px] text-[11px] text-[#969da8]">이메일</dt><dd className="text-[14px] font-bold">{meQuery.data.email}</dd></div>
             </dl>
           </div>
+          ) : null}
         </section>
         <section aria-labelledby="bookmarks-heading" className="mt-[28px]">
           <h2 id="bookmarks-heading" className="mb-[14px] text-[16px] font-bold">내 즐겨찾기</h2>
-          {bookmarkIds.length === 0 ? (
+          {memberId === null ? (
+            <p className="py-[32px] text-[14px] text-[#606774]">로그인 정보를 확인할 수 없어요. 다시 로그인해 주세요.</p>
+          ) : favoritesQuery.isPending ? (
+            <p className="py-[32px] text-[14px] text-[#606774]" role="status">즐겨찾기를 불러오는 중이에요.</p>
+          ) : favoritesQuery.isError ? (
+            <div className="py-[32px] text-[14px]"><p role="alert">즐겨찾기를 불러오지 못했어요.</p><button type="button" onClick={() => favoritesQuery.refetch()} className="mt-[12px] cursor-pointer font-bold text-[#2563eb]">다시 시도</button></div>
+          ) : bookmarkIds.length === 0 ? (
             <div className="py-[64px] text-center text-[14px] text-[#606774]"><p>아직 즐겨찾기한 영화가 없어요.</p><Link to="/" className="mt-[12px] inline-block font-bold text-[#2563eb] hover:underline">영화 둘러보기</Link></div>
           ) : (
             <>

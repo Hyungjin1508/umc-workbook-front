@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { checkEmailDuplicate } from "@/api/members/check-email-duplicate";
 import { checkNicknameDuplicate } from "@/api/members/check-nickname-duplicate";
-import { signup } from "@/api/members/signup";
+import { useSignupMutation } from "@/hooks/use-signup-mutation";
 import { Link } from "@tanstack/react-router";
 
 // 이메일 형식 검사
@@ -28,8 +28,7 @@ const DEFAULT_DUPLICATE_CHECK = {
 
 export function SignupPage() {
   const [form, setForm] = useState(DEFAULT_FORM);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  // const navigate = useNavigate();
+  const signupMutation = useSignupMutation();
   const [duplicateCheck, setDuplicateCheck] = useState({
     email: DEFAULT_DUPLICATE_CHECK,
     nickname: DEFAULT_DUPLICATE_CHECK,
@@ -111,25 +110,15 @@ export function SignupPage() {
     }
   };
   
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!canSubmit || isSubmitting) return;
+  const handleSubmit = (event: React.SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit || signupMutation.isPending) return;
 
-    setIsSubmitting(true);
-    try {
-      const response = await signup({
-        email: form.email.trim(),
-        nickname: form.nickname.trim(),
-        password: form.password,
-      });
-      alert(response.message);
-      // 로그인 페이지 연결 후 주석 해제
-      // navigate({ to: "/login" });
-    } catch {
-      alert("회원가입에 실패했어요. 다시 시도해 주세요.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    signupMutation.mutate({
+      email: form.email.trim(),
+      nickname: form.nickname.trim(),
+      password: form.password,
+    });
   };
   
 
@@ -222,8 +211,8 @@ export function SignupPage() {
             </div>
           </div>
 
-          <button type="submit" disabled={!canSubmit || isSubmitting} className="mt-[18px] flex h-[46px] w-full cursor-pointer items-center justify-center rounded-[8px] bg-[#2563eb] text-[14px] font-bold text-white transition-colors enabled:hover:bg-[#1d4ed8] disabled:cursor-not-allowed">
-            {isSubmitting ? "가입 중" : "가입하기"}
+          <button type="submit" disabled={!canSubmit || signupMutation.isPending} className="mt-[18px] flex h-[46px] w-full cursor-pointer items-center justify-center rounded-[8px] bg-[#2563eb] text-[14px] font-bold text-white transition-colors enabled:hover:bg-[#1d4ed8] disabled:cursor-not-allowed">
+            {signupMutation.isPending ? "가입 중" : "가입하기"}
           </button>
         </form>
 

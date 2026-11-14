@@ -13,9 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as protectedAuthenticatedRouteImport } from './routes/(protected)/_authenticated'
 import { Route as MoviesMovieIdRouteImport } from './routes/movies.$movieId'
-import { Route as MyPageIndexRouteImport } from './routes/my-page/index'
-import { Route as MyPageEditRouteImport } from './routes/my-page/edit'
+import { Route as protectedAuthenticatedMyPageIndexRouteImport } from './routes/(protected)/_authenticated/my-page/index'
+import { Route as protectedAuthenticatedMyPageEditRouteImport } from './routes/(protected)/_authenticated/my-page/edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,21 +38,27 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const protectedAuthenticatedRoute = protectedAuthenticatedRouteImport.update({
+  id: '/(protected)/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MoviesMovieIdRoute = MoviesMovieIdRouteImport.update({
   id: '/movies/$movieId',
   path: '/movies/$movieId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MyPageIndexRoute = MyPageIndexRouteImport.update({
-  id: '/my-page/',
-  path: '/my-page/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MyPageEditRoute = MyPageEditRouteImport.update({
-  id: '/my-page/edit',
-  path: '/my-page/edit',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const protectedAuthenticatedMyPageIndexRoute =
+  protectedAuthenticatedMyPageIndexRouteImport.update({
+    id: '/my-page/',
+    path: '/my-page/',
+    getParentRoute: () => protectedAuthenticatedRoute,
+  } as any)
+const protectedAuthenticatedMyPageEditRoute =
+  protectedAuthenticatedMyPageEditRouteImport.update({
+    id: '/my-page/edit',
+    path: '/my-page/edit',
+    getParentRoute: () => protectedAuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,8 +66,8 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/signup': typeof SignupRoute
   '/movies/$movieId': typeof MoviesMovieIdRoute
-  '/my-page/edit': typeof MyPageEditRoute
-  '/my-page/': typeof MyPageIndexRoute
+  '/my-page/edit': typeof protectedAuthenticatedMyPageEditRoute
+  '/my-page/': typeof protectedAuthenticatedMyPageIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -68,8 +75,8 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/signup': typeof SignupRoute
   '/movies/$movieId': typeof MoviesMovieIdRoute
-  '/my-page/edit': typeof MyPageEditRoute
-  '/my-page': typeof MyPageIndexRoute
+  '/my-page/edit': typeof protectedAuthenticatedMyPageEditRoute
+  '/my-page': typeof protectedAuthenticatedMyPageIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,9 +84,10 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/signup': typeof SignupRoute
+  '/(protected)/_authenticated': typeof protectedAuthenticatedRouteWithChildren
   '/movies/$movieId': typeof MoviesMovieIdRoute
-  '/my-page/edit': typeof MyPageEditRoute
-  '/my-page/': typeof MyPageIndexRoute
+  '/(protected)/_authenticated/my-page/edit': typeof protectedAuthenticatedMyPageEditRoute
+  '/(protected)/_authenticated/my-page/': typeof protectedAuthenticatedMyPageIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,9 +114,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/search'
     | '/signup'
+    | '/(protected)/_authenticated'
     | '/movies/$movieId'
-    | '/my-page/edit'
-    | '/my-page/'
+    | '/(protected)/_authenticated/my-page/edit'
+    | '/(protected)/_authenticated/my-page/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -116,9 +125,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
   SignupRoute: typeof SignupRoute
+  protectedAuthenticatedRoute: typeof protectedAuthenticatedRouteWithChildren
   MoviesMovieIdRoute: typeof MoviesMovieIdRoute
-  MyPageEditRoute: typeof MyPageEditRoute
-  MyPageIndexRoute: typeof MyPageIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -151,6 +159,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/(protected)/_authenticated': {
+      id: '/(protected)/_authenticated'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof protectedAuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/movies/$movieId': {
       id: '/movies/$movieId'
       path: '/movies/$movieId'
@@ -158,31 +173,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MoviesMovieIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/my-page/': {
-      id: '/my-page/'
+    '/(protected)/_authenticated/my-page/': {
+      id: '/(protected)/_authenticated/my-page/'
       path: '/my-page'
       fullPath: '/my-page/'
-      preLoaderRoute: typeof MyPageIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof protectedAuthenticatedMyPageIndexRouteImport
+      parentRoute: typeof protectedAuthenticatedRoute
     }
-    '/my-page/edit': {
-      id: '/my-page/edit'
+    '/(protected)/_authenticated/my-page/edit': {
+      id: '/(protected)/_authenticated/my-page/edit'
       path: '/my-page/edit'
       fullPath: '/my-page/edit'
-      preLoaderRoute: typeof MyPageEditRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof protectedAuthenticatedMyPageEditRouteImport
+      parentRoute: typeof protectedAuthenticatedRoute
     }
   }
 }
+
+interface protectedAuthenticatedRouteChildren {
+  protectedAuthenticatedMyPageEditRoute: typeof protectedAuthenticatedMyPageEditRoute
+  protectedAuthenticatedMyPageIndexRoute: typeof protectedAuthenticatedMyPageIndexRoute
+}
+
+const protectedAuthenticatedRouteChildren: protectedAuthenticatedRouteChildren =
+  {
+    protectedAuthenticatedMyPageEditRoute:
+      protectedAuthenticatedMyPageEditRoute,
+    protectedAuthenticatedMyPageIndexRoute:
+      protectedAuthenticatedMyPageIndexRoute,
+  }
+
+const protectedAuthenticatedRouteWithChildren =
+  protectedAuthenticatedRoute._addFileChildren(
+    protectedAuthenticatedRouteChildren,
+  )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
   SignupRoute: SignupRoute,
+  protectedAuthenticatedRoute: protectedAuthenticatedRouteWithChildren,
   MoviesMovieIdRoute: MoviesMovieIdRoute,
-  MyPageEditRoute: MyPageEditRoute,
-  MyPageIndexRoute: MyPageIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
