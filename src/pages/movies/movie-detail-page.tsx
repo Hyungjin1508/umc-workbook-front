@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getMovieDetail } from "../../api/movies/get-movie-detail";
 import { BookmarkButton } from "../../components/bookmark-button";
+import { MovieRatingSection } from "@/components/movies/movie-rating-section";
 import { TmdbAttribution } from "../../components/layout/tmdb-attribution";
 import { getMovieDetailErrorMessage } from "../../utils/movies/get-movie-detail-error-message";
 import { getTmdbBackdropUrl, getTmdbPosterUrl } from "../../utils/movies/tmdb-image";
@@ -67,6 +68,7 @@ export function MovieDetailPage() {
       <h2>{movie.tagline}</h2>
       <p>{movie.overview}</p>
     </main>
+    <MovieRatingSection movieId={movie.id} />
     </MovieDetailLayout>
   );
 }
