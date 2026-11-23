@@ -1,4 +1,6 @@
-import { Link } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type SubmitEvent } from "react";
 import { getMemberRatings } from "@/api/ratings/get-member-ratings";
@@ -6,6 +8,7 @@ import type { Rating } from "@/api/ratings/models";
 import { useMemberId } from "@/hooks/use-member-id";
 import { useRatingMutation } from "@/hooks/use-rating-mutation";
 import { ratingKeys } from "@/utils/query-keys";
+import { getApiErrorMessage } from "@/utils/get-api-error";
 
 export function MovieRatingSection({ movieId }: { movieId: number }) {
   const memberId = useMemberId();
@@ -22,11 +25,11 @@ export function MovieRatingSection({ movieId }: { movieId: number }) {
     <section className="mx-[80px] my-[40px] rounded-[12px] border border-[#e3e6eb] bg-white p-[24px]" aria-labelledby="my-rating-heading">
       <h2 id="my-rating-heading" className="mb-[20px] text-[22px] font-bold">내 평점과 후기</h2>
       {memberId === null ? (
-        <p className="text-[14px] text-[#606774]">로그인 후 평점과 후기를 작성할 수 있어요. <Link to="/login" className="font-bold text-[#2563eb]">로그인</Link></p>
+        <p className="text-[14px] text-[#606774]">로그인 후 평점과 후기를 작성할 수 있어요. <Link href="/login" className="font-bold text-[#2563eb]">로그인</Link></p>
       ) : ratingsQuery.isPending ? (
         <p role="status">내 평점을 불러오는 중이에요.</p>
       ) : ratingsQuery.isError ? (
-        <div><p role="alert">내 평점을 불러오지 못했어요.</p><button type="button" onClick={() => ratingsQuery.refetch()} className="mt-[12px] cursor-pointer font-bold text-[#2563eb]">다시 시도</button></div>
+        <div><p role="alert">{getApiErrorMessage(ratingsQuery.error, "내 평점을 불러오지 못했어요.")}</p><button type="button" onClick={() => ratingsQuery.refetch()} className="mt-[12px] cursor-pointer font-bold text-[#2563eb]">다시 시도</button></div>
       ) : (
         <RatingForm key={JSON.stringify([memberId, movieId, rating ?? null])} memberId={memberId} movieId={movieId} rating={rating} />
       )}
@@ -60,7 +63,7 @@ function RatingForm({ memberId, movieId, rating }: { memberId: number; movieId: 
       <label htmlFor="rating-comment" className="text-[14px] font-bold">후기 (선택)</label>
       <textarea id="rating-comment" value={comment} onChange={(event) => setComment(event.target.value)} maxLength={500} rows={4} disabled={mutation.isPending} className={fieldClass} aria-describedby="rating-comment-count" placeholder="이 영화에 대한 후기를 남겨 주세요." />
       <p id="rating-comment-count" className="text-right text-[12px] text-[#606774]">{comment.length} / 500자</p>
-      {mutation.isError && <p role="alert" className="text-[13px] text-red-600">평점 요청에 실패했어요. 입력값을 확인하고 다시 시도해 주세요.</p>}
+      {mutation.isError && <p role="alert" className="text-[13px] text-red-600">{getApiErrorMessage(mutation.error, "평점 요청에 실패했어요. 입력값을 확인하고 다시 시도해 주세요.")}</p>}
       <div className="flex gap-[10px]">
         <button type="submit" disabled={!canSubmit || mutation.isPending} className={`${buttonClass} bg-[#2563eb] text-white`}>{mutation.isPending ? "처리 중" : rating ? "수정" : "등록"}</button>
         {rating && <button type="button" disabled={mutation.isPending} className={`${buttonClass} border border-red-500 text-red-600`} onClick={() => {

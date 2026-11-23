@@ -1,3 +1,5 @@
+"use client";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createRating } from "@/api/ratings/create-rating";
 import { updateRating } from "@/api/ratings/update-rating";

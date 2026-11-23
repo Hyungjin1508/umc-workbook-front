@@ -1,3 +1,5 @@
+"use client";
+
 import { useQuery } from "@tanstack/react-query";
 import { getFavorites } from "@/api/favorites/get-favorites";
 import { favoriteKeys } from "@/utils/query-keys";

@@ -1,6 +1,9 @@
-import { useNavigate } from "@tanstack/react-router";
+"use client";
+
+import { useRouter } from "next/navigation";
 import { useFavorite } from "@/hooks/use-favorite";
 import { cn } from "../utils/cn";
+import { getApiErrorMessage } from "@/utils/get-api-error";
 
 interface BookmarkButtonProps {
   movieId: number;
@@ -10,15 +13,19 @@ interface BookmarkButtonProps {
 }
 
 export function BookmarkButton({ movieId, movieTitle, variant = "text", className }: BookmarkButtonProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { memberId, query, isFavorite: isBookmarked, mutation, isChanging } = useFavorite(movieId, variant === "text");
   const isBusy = memberId !== null && (query.isLoading || isChanging);
   const hasError = memberId !== null && (query.isError || mutation.isError);
+  const errorMessage = getApiErrorMessage(
+    mutation.error ?? query.error,
+    "즐겨찾기 요청에 실패했어요. 클릭해서 다시 시도해 주세요.",
+  );
 
   function handleClick() {
     if (memberId === null) {
       alert("로그인 후 즐겨찾기를 사용할 수 있어요.");
-      navigate({ to: "/login" });
+      router.push("/login");
       return;
     }
     if (isBusy) return;
@@ -36,7 +43,7 @@ export function BookmarkButton({ movieId, movieTitle, variant = "text", classNam
       aria-pressed={isBookmarked}
       aria-busy={isBusy}
       disabled={isBusy}
-      title={hasError ? "즐겨찾기 요청에 실패했어요. 클릭해서 다시 시도해 주세요." : undefined}
+      title={hasError ? errorMessage : undefined}
       onClick={handleClick}
       className={cn(
         "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-[6px] rounded-[8px] border p-0 text-[13px] font-bold transition-colors disabled:cursor-wait disabled:opacity-50",

@@ -15,6 +15,8 @@ const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const srcRoot = resolve(projectRoot, "src");
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    // Next.js 번들러는 확장자를 보완하지만 Node ESM은 .js가 필요해요.
+    if (specifier === "next/link") return nextResolve("next/link.js", context);
     let candidate;
     if (specifier.startsWith("@/")) candidate = resolve(srcRoot, specifier.slice(2));
     else if (specifier.startsWith(".") && context.parentURL?.startsWith(pathToFileURL(srcRoot).href)) {
@@ -83,9 +85,15 @@ const { createRating } = await src("api/ratings/create-rating.ts");
 const { updateRating } = await src("api/ratings/update-rating.ts");
 const { deleteRating } = await src("api/ratings/delete-rating.ts");
 const { MovieRatingSection } = await src("components/movies/movie-rating-section.tsx");
+const { useFavorite } = await src("hooks/use-favorite.ts");
+const { getApiErrorCode, getApiErrorMessage } = await src("utils/get-api-error.ts");
+
+// Next.js용 저장소는 window가 있는 브라우저에서만 접근해요.
+globalThis.window = { localStorage: globalThis.localStorage };
 
 const envelope = (result) => ({ isSuccess: true, code: "COMMON200", message: "OK", result });
 const rating = { ratingId: 10, movieId: 123, score: 4, comment: "후기", createdAt: "2026-11-13T10:00:00", updatedAt: "2026-11-13T10:00:00" };
+const favorite = { favoriteId: 52, movieId: 123, createdAt: "2026-11-16T10:00:00" };
 const token = (payload) => `header.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.signature`;
 
 test("JWT sub: unicode payload and malformed/unsafe IDs", () => {
@@ -99,10 +107,13 @@ test("favorites: all four request methods, bodies, auth headers and result shape
   useAuthStore.getState().setAccessToken("test-token");
   pending.push({ method: "GET", path: "/favorites", response: envelope([]) });
   assert.deepEqual(await getFavorites(), []);
-  pending.push({ method: "GET", path: "/favorites/123", response: envelope({ movieId: 123, isFavorite: false }) });
-  assert.equal((await getFavorite(123)).isFavorite, false);
-  pending.push({ method: "POST", path: "/favorites", body: { movieId: 123 }, status: 201, response: envelope({ movieId: 123, isFavorite: true }) });
-  assert.equal((await addFavorite(123)).isFavorite, true);
+  const olderFavorite = { ...favorite, favoriteId: 51, movieId: 456 };
+  pending.push({ method: "GET", path: "/favorites", response: envelope([favorite, olderFavorite]) });
+  assert.deepEqual(await getFavorites(), [favorite, olderFavorite]);
+  pending.push({ method: "GET", path: "/favorites/123", response: envelope({ isFavorite: false }) });
+  assert.deepEqual(await getFavorite(123), { isFavorite: false });
+  pending.push({ method: "POST", path: "/favorites", body: { movieId: 123 }, status: 201, response: envelope(favorite) });
+  assert.deepEqual(await addFavorite(123), favorite);
   pending.push({ method: "DELETE", path: "/favorites/123", response: envelope(null) });
   await deleteFavorite(123);
   assert.equal(pending.length, 0);
@@ -116,6 +127,8 @@ test("ratings: raw public GET, authenticated create/update/delete and exact body
   const changed = { ...rating, score: 5, comment: "수정" };
   pending.push({ method: "PATCH", path: "/ratings/10", body: { score: 5, comment: "수정" }, response: envelope(changed) });
   assert.deepEqual(await updateRating(10, { score: 5, comment: "수정" }), changed);
+  pending.push({ method: "PATCH", path: "/ratings/10", body: { score: 5, comment: "" }, response: envelope({ ...changed, comment: null }) });
+  assert.equal((await updateRating(10, { score: 5, comment: "" })).comment, null);
   pending.push({ method: "DELETE", path: "/ratings/10", response: envelope(null) });
   await deleteRating(10);
   assert.equal(pending.length, 0);
@@ -130,6 +143,87 @@ test("API failures reject; 401 clears auth storage", async () => {
   await assert.rejects(getFavorites());
   assert.equal(useAuthStore.getState().accessToken, null);
   assert.equal(JSON.parse(memory.get("umcine-auth-store")).state.accessToken, null);
+});
+
+test("backend error code/message and non-standard error body fallback", async () => {
+  useAuthStore.getState().setAccessToken("test-token");
+  pending.push({ method: "POST", path: "/favorites", body: { movieId: 123 }, status: 409, response: {
+    isSuccess: false, code: "FAVORITE409_1", message: "이미 이 영화를 즐겨찾기하셨습니다.", result: null,
+  } });
+  await assert.rejects(addFavorite(123), (error) => {
+    assert.equal(getApiErrorCode(error), "FAVORITE409_1");
+    assert.equal(getApiErrorMessage(error, "기본 안내"), "이미 이 영화를 즐겨찾기하셨습니다.");
+    return true;
+  });
+  pending.push({ method: "POST", path: "/favorites", body: { movieId: 123 }, status: 400, response: {
+    timestamp: "2026-11-17T10:00:00", status: 400, error: "Bad Request", path: "/favorites",
+  } });
+  await assert.rejects(addFavorite(123), (error) => {
+    assert.equal(getApiErrorCode(error), undefined);
+    assert.equal(getApiErrorMessage(error, "기본 안내"), "기본 안내");
+    return true;
+  });
+  assert.equal(getApiErrorMessage(new TypeError("network failure"), "기본 안내"), "기본 안내");
+});
+
+test("favorite hook uses real POST metadata response to update detail and refresh active list", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: false, gcTime: Infinity } } });
+  const listKey = favoriteKeys.list(42);
+  const detailKey = favoriteKeys.detail(42, 123);
+  client.setQueryData(listKey, []);
+  client.setQueryData(detailKey, { isFavorite: false });
+  const observer = new QueryObserver(client, { queryKey: listKey, queryFn: getFavorites, staleTime: 60_000 });
+  const unsubscribe = observer.subscribe(() => {});
+  let hook;
+  function Harness() {
+    hook = useFavorite(123, true);
+    return null;
+  }
+  renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(Harness)));
+  pending.push({ method: "POST", path: "/favorites", body: { movieId: 123 }, status: 201, response: envelope(favorite) });
+  pending.push({ method: "GET", path: "/favorites", response: envelope([favorite]) });
+  await hook.mutation.mutateAsync(false);
+  assert.deepEqual(client.getQueryData(detailKey), { isFavorite: true });
+  assert.deepEqual(client.getQueryData(listKey), [favorite]);
+  pending.push({ method: "DELETE", path: "/favorites/123", response: envelope(null) });
+  pending.push({ method: "GET", path: "/favorites", response: envelope([]) });
+  await hook.mutation.mutateAsync(true);
+  assert.deepEqual(client.getQueryData(detailKey), { isFavorite: false });
+  assert.deepEqual(client.getQueryData(listKey), []);
+  assert.equal(pending.length, 0);
+  unsubscribe();
+  client.clear();
+});
+
+test("favorite conflicts 409 and missing deletion 404 resynchronize server state", async () => {
+  const cases = [
+    { code: "FAVORITE409_1", method: "POST", path: "/favorites", status: 409, previous: false, current: true },
+    { code: "COMMON4091", method: "POST", path: "/favorites", status: 409, previous: false, current: true },
+    { code: "FAVORITE404_1", method: "DELETE", path: "/favorites/123", status: 404, previous: true, current: false },
+  ];
+  for (const scenario of cases) {
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: false, gcTime: Infinity } } });
+    const listKey = favoriteKeys.list(42);
+    const detailKey = favoriteKeys.detail(42, 123);
+    client.setQueryData(listKey, scenario.previous ? [favorite] : []);
+    client.setQueryData(detailKey, { isFavorite: scenario.previous });
+    const observer = new QueryObserver(client, { queryKey: detailKey, queryFn: () => getFavorite(123), staleTime: 60_000 });
+    const unsubscribe = observer.subscribe(() => {});
+    let hook;
+    function Harness() {
+      hook = useFavorite(123, true);
+      return null;
+    }
+    renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(Harness)));
+    pending.push({ ...scenario, response: { isSuccess: false, code: scenario.code, message: "상태 충돌", result: null } });
+    pending.push({ method: "GET", path: "/favorites/123", response: envelope({ isFavorite: scenario.current }) });
+    await assert.rejects(hook.mutation.mutateAsync(scenario.previous));
+    assert.deepEqual(client.getQueryData(detailKey), { isFavorite: scenario.current });
+    assert.equal(client.getQueryState(listKey).isInvalidated, true);
+    assert.equal(pending.length, 0);
+    unsubscribe();
+    client.clear();
+  }
 });
 
 test("rating cache: add/replace/delete, no extra fetch on fresh remount, member separation", () => {
@@ -151,6 +245,8 @@ test("rating cache: add/replace/delete, no extra fetch on fresh remount, member 
   assert.notDeepEqual(favoriteKeys.detail(42, 123), favoriteKeys.detail(42, 456));
   client.setQueryData(key, (previous) => updateRatingList(previous, 10, null));
   assert.deepEqual(client.getQueryData(key), []);
+  const olderRating = { ...rating, ratingId: 9, movieId: 456 };
+  assert.deepEqual(updateRatingList([olderRating], null, rating), [rating, olderRating]);
   assert.equal(updateRatingList(undefined, null, rating), undefined);
   unsubscribe();
   client.clear();
