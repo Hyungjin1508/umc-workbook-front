@@ -19,6 +19,9 @@ dist-ssr
 
 # Generated caches and local artifacts
 .tanstack/
+.next/
+out/
+next-env.d.ts
 .pnpm-store/
 *.tsbuildinfo
 coverage/

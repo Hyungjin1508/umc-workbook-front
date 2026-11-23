@@ -1,7 +1,9 @@
+import { clientStorage } from "./client-storage";
+
 const BOOKMARK_STORAGE_KEY = "umcine-bookmarks";  // 고정된 key
 
 export function readBookmarkIds(): number[] {   // 넘버배열 형태 함수
-  const storedValue = localStorage.getItem(BOOKMARK_STORAGE_KEY);  // 로컬스트리지에서 BOOKMARK_STORAGE_KEY key가 달린 상자를 get해봐라
+  const storedValue = clientStorage.getItem(BOOKMARK_STORAGE_KEY);  // 브라우저에서만 저장값을 읽어요.
   if (!storedValue) return [];  // 근데 그 key가 붙여진 상자가 없다면? 빈 배열 반환
 
   try {  // 시도해라
@@ -20,5 +22,5 @@ export function readBookmarkIds(): number[] {   // 넘버배열 형태 함수
 }
 
 export function saveBookmarkIds(movieIds: number[]) {
-  localStorage.setItem(BOOKMARK_STORAGE_KEY, JSON.stringify(movieIds));
+  clientStorage.setItem(BOOKMARK_STORAGE_KEY, JSON.stringify(movieIds));
 }  // stringify를 쓴거 보니까 자바스크립 값을 문자열로 변환해서 set하는거네
